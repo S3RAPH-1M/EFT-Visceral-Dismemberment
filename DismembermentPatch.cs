@@ -20,18 +20,22 @@ namespace DismembermentMod
 {
     public class DismembermentPatch : ModulePatch
     {
-        private static HashSet<String> calibers = new HashSet<String> {
-            "Caliber12g",
-            "Caliber86x70",
-            "Caliber127x55",
-            "Caliber20g",
-            "Caliber23x75",
-            "Caliber762x51",
-            "25x59mm",
-            "12.7x99",
-            "Caliber762x54R",
-            "Caliber86x70",
-            "86x70"
+        private static Dictionary<String, Single> calibers = new Dictionary<String, Single> {
+            { "Caliber12g", 1f },
+            { "Caliber86x70", 0.8f },
+            { "Caliber127x55", .6f },
+            { "Caliber20g", 0.8f },
+            { "Caliber23x75", 1f },
+            { "Caliber9x33R", 0.07f },
+            { "Caliber545x39", 0.3f },
+            { "Caliber762x39", 0.5f },
+            { "Caliber762x51", 0.7f },
+            { "Caliber762x54R", 1f },
+            { "Caliber762x35", 0.5f },
+            { "Caliber556x45NATO", 0.3f },
+            { "Caliber46x30", 0.1f },
+            { "Caliber57x28", 0.2f },
+            { "Caliber9x39", 0.4f },
         };
         public int RandomNumberOutcome
         {
@@ -106,10 +110,15 @@ namespace DismembermentMod
                 return;
             }
 
-            if (damageInfo.DamageType != EDamageType.Landmine && damageInfo.DamageType != EDamageType.Explosion && damageInfo.DamageType != EDamageType.GrenadeFragment)
+            if (damageInfo.DamageType != EDamageType.Landmine && damageInfo.DamageType != EDamageType.Explosion && damageInfo.DamageType != EDamageType.GrenadeFragment && damageInfo.DamageType != EDamageType.Barbed && damageInfo.DamageType != EDamageType.Flame && damageInfo.DamageType != EDamageType.Blunt)
             {
 
-                if (!Singleton<ItemFactory>.Instance.ItemTemplates.TryGetValue(damageInfo.SourceId, out ItemTemplate template) || !(template is AmmoTemplate ammoTemplate) || !calibers.Contains(ammoTemplate.Caliber))
+                if (!Singleton<ItemFactory>.Instance.ItemTemplates.TryGetValue(damageInfo.SourceId, out ItemTemplate template) || !(template is AmmoTemplate ammoTemplate) || !calibers.ContainsKey(ammoTemplate.Caliber))
+                {
+                    return;
+                }
+                calibers.TryGetValue(ammoTemplate.Caliber, out float chance);
+                if (UnityEngine.Random.value > chance)
                 {
                     return;
                 }
@@ -118,21 +127,21 @@ namespace DismembermentMod
             Transform[] limbs = null;
             if (damageInfo.DamageType == EDamageType.Landmine || damageInfo.DamageType == EDamageType.Explosion || damageInfo.DamageType == EDamageType.GrenadeFragment)
             {
-                if (UnityEngine.Random.Range(0, 2) == 0)
+                if (UnityEngine.Random.Range(0, 3) == 0)
                 {
                     DismemberLimb(__instance, "lthigh1", "Leg_LeftCap", new String[] {
                         "gore_leg_torn01"
                     }, out limbs);
                 }
 
-                if (UnityEngine.Random.Range(0, 2) == 0)
+                if (UnityEngine.Random.Range(0, 3) == 0)
                 {
                     DismemberLimb(__instance, "rthigh1", "Leg_RightCap", new String[] {
                         "gore_leg_torn02"
                     }, out limbs);
                 }
 
-                if (UnityEngine.Random.Range(0, 2) == 0)
+                if (UnityEngine.Random.Range(0, 3) == 0)
                 {
                     DismemberLimb(__instance, "lforearm1", "Arm_LeftCap", new String[] {
                         "Arm_L_1",
@@ -140,7 +149,7 @@ namespace DismembermentMod
                     }, out limbs);
                 }
 
-                if (UnityEngine.Random.Range(0, 2) == 0)
+                if (UnityEngine.Random.Range(0, 3) == 0)
                 {
                     DismemberLimb(__instance, "rforearm1", "Arm_RightCap", new String[] {
                         "Arm_R_1",
@@ -199,6 +208,13 @@ namespace DismembermentMod
             {
                 return;
             }
+            if (bodyPartType == EBodyPart.Head && UnityEngine.Random.value >= 0.5f)
+            {
+                var SFXIndex = UnityEngine.Random.Range(0, 3);
+                GameObject SFXPrefab = Nexus.BundleLoader.BundleLoaderPlugin.Instance.GetAssetBundle("bloodsfx").LoadAllAssets<GameObject>()[SFXIndex];
+                GameObject SFXObject = UnityEngine.Object.Instantiate(SFXPrefab);
+                SFXObject.transform.position = limbs[0].position;
+            }
 
             SpawnBlood(limbs[0], damageInfo.Direction);
         }
@@ -214,7 +230,10 @@ namespace DismembermentMod
             BFX_BloodSettings bloodSettings = bloodObject.GetComponent<BFX_BloodSettings>();
 
             bloodObject.transform.position = target.position;
-            bloodObject.transform.rotation = Quaternion.Euler(0, -target.TransformDirection(direction).y, 0);
+            direction.y = 0f;
+            Quaternion rotation = Quaternion.LookRotation(direction);
+            rotation.y -= 180f;
+            bloodObject.transform.rotation = rotation;
             bloodSettings.GroundHeight = target.position.y - 2;
 
             bainObject.transform.position = target.position;
